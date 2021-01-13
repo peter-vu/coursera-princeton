@@ -1,71 +1,68 @@
 /* *****************************************************************************
  *  Name:              Peter Vu
- *  Coursera User ID:  vututuananh.vn.sg@gmail.com
+ *  Coursera User ID:  123
  *  Last modified:     9/1/2020
- * Solved with best timing + best memory
+ *  Simple version with 2 UF objects, do not pass bonus memory test
  **************************************************************************** */
 
 import edu.princeton.cs.algs4.WeightedQuickUnionUF;
 
-public class Percolation {
-    // private static final byte IS_CLOSED = (byte) 0;
-    private static final byte IS_OPEN = (byte) 1;
-    private static final byte IS_TOP = (byte) 2;
-    private static final byte IS_BOTTOM = (byte) 4;
-    private static final byte IS_PERCOLATE = (byte) 7;
-
-    private byte[] states;
-    private final int n;
+public class Percolation1 {
+    private boolean[] isOpen;
+    private final int n, source, sink;
     private int noOpenSites;
-    private final WeightedQuickUnionUF uf;
-    private boolean isPercolated;
+    private final WeightedQuickUnionUF uf, topFillUf;
+    // private final int[][] direction = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
 
     // creates n-by-n grid, with all sites initially blocked
-    public Percolation(int n) {
+    public Percolation1(int n) {
         assertValidArgument(n > 0);
         this.n = n;
-        this.states = new byte[n * n];
+        this.isOpen = new boolean[n * n + 2];
         this.noOpenSites = 0;
-        this.uf = new WeightedQuickUnionUF(n * n);
-        isPercolated = false;
+        this.source = n * n;
+        this.sink = n * n + 1;
+        this.isOpen[source] = true;
+        this.isOpen[sink] = true;
+        this.uf = new WeightedQuickUnionUF(n * n + 2);
+        this.topFillUf = new WeightedQuickUnionUF(n * n + 1);
     }
 
     // opens the site (row, col) if it is not open already
     public void open(int row, int col) {
         assertValidArgument(isValid(row, col));
-        int p = getIndex(row, col);
-        if ((states[p] & IS_OPEN) != IS_OPEN) {
-            states[p] = (byte) (states[p] | IS_OPEN);
+        int p1 = getIndex(row, col);
+        if (!isOpen[p1]) {
+            isOpen[p1] = true;
             noOpenSites++;
+            unionTop(row, col);
+            unionBottom(row, col);
+            unionLeft(row, col);
+            unionRight(row, col);
 
-            int root = uf.find(p);
+            // check for source and sink union
             if (row == 1) {
-                states[root] = (byte) (states[root] | IS_TOP);
+                uf.union(source, p1);
+                topFillUf.union(source, p1);
             }
             if (row == n) {
-                states[root] = (byte) (states[root] | IS_BOTTOM);
+                uf.union(p1, sink);
             }
         }
 
-        unionTop(row, col);
-        unionBottom(row, col);
-        unionLeft(row, col);
-        unionRight(row, col);
-
-        checkPercolates(p);
     }
 
     // is the site (row, col) open?
     public boolean isOpen(int row, int col) {
         assertValidArgument(isValid(row, col));
-        return (states[getIndex(row, col)] & IS_OPEN) == IS_OPEN;
+        return isOpen[getIndex(row, col)];
     }
 
     // is the site (row, col) full?
     public boolean isFull(int row, int col) {
         assertValidArgument(isValid(row, col));
-        int root = uf.find(getIndex(row, col));
-        return (states[root] & IS_TOP) == IS_TOP;
+        int p = getIndex(row, col);
+        return topFillUf.find(source) == topFillUf.find(p);
     }
 
     // returns the number of open sites
@@ -75,13 +72,13 @@ public class Percolation {
 
     // does the system percolate?
     public boolean percolates() {
-        return isPercolated;
+        return uf.find(source) == uf.find(sink);
     }
 
     private boolean isAvailable(int row, int col) {
         // assertValidArgument(isValid(row, col));
         if (isValid(row, col)) {
-            return (states[getIndex(row, col)] & IS_OPEN) == IS_OPEN;
+            return isOpen[getIndex(row, col)];
         }
         return false;
 
@@ -95,6 +92,7 @@ public class Percolation {
     private void assertValidArgument(boolean valid) {
         if (!valid) {
             throw new IllegalArgumentException("Invalid argument");
+
         }
     }
 
@@ -135,39 +133,24 @@ public class Percolation {
     }
 
     private void union(int p1, int p2) {
-        int root1 = uf.find(p1);
-        int root2 = uf.find(p2);
-        states[root1] = (byte) (states[root1] | states[root2]);
-        states[root2] = states[root1];
         uf.union(p1, p2);
-        // additional check
-        int root = uf.find(p1);
-        states[root] = (byte) (states[root] | states[root1] | states[root2]);
-        checkPercolates(root);
-    }
-
-    private void checkPercolates(int p) {
-        int root = uf.find(p);
-        if ((states[root] & IS_PERCOLATE) == IS_PERCOLATE) {
-            isPercolated = true;
-        }
+        topFillUf.union(p1, p2);
     }
 
     // test client (optional)
     public static void main(String[] args) {
-        int n = 3;
-        int[][] array = { { 1, 1 }, { 2, 1 }, { 3, 1 } };
-        Percolation perc = new Percolation(n);
-        // System.out.println("isOpen(1,5): " + perc.isOpen(1, 5));
+        int n = 6;
+        int[][] array = { { 1, 2 }, { 2, 2 }, { 2, 2 } };
+        Percolation1 perc = new Percolation1(n);
+        System.out.println(perc.isOpen(1, 2));
         for (int[] input : array) {
             int row = input[0];
             int col = input[1];
             perc.open(row, col);
-            System.out.println("isFull: " + "[" + row + "," + col + "]: " + perc.isFull(row, col));
         }
-        System.out.println("isOpen(1,2): " + perc.isOpen(1, 2));
+        System.out.println(perc.isOpen(1, 2));
         System.out.println("noOpenSites: " + perc.numberOfOpenSites());
-        System.out.println("percolate: " + perc.percolates());
-        System.out.println("isFull: " + perc.isFull(1, 1));
+        System.out.println(perc.percolates());
+        System.out.println(perc.isFull(1, 1));
     }
 }
